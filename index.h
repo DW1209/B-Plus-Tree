@@ -16,7 +16,7 @@ public:
 private:
     bool leaf;
     int size;
-    pii *data;
+	pii *data;
     Node **pointer;
     friend class Index;
 };
@@ -30,7 +30,8 @@ public:
     void clear_index();
 
     void insert(int k, int v);
-    int search(int k);
+    int searchKey(int k);
+    int searchRange(int begin, int last);
     void deletion(Node *current);
 
     void insertInternal(pii KV, Node *current, Node *child);

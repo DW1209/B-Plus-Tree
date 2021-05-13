@@ -1,6 +1,6 @@
 #include "index.h"
 
-const int MAX = 2750;
+const int MAX = 100;
 
 Node::Node()
 {
@@ -28,9 +28,9 @@ void Index::key_query(vector<int> &query_key)
     ofstream outfile("key_query_out.txt");
 
     for (int i = 0; i < query_key.size(); i++){
-        outfile << search(query_key[i]) << endl;
+	    outfile << searchKey(query_key[i]) << endl;
     }
-
+       
     outfile.close();
 }
 
@@ -39,13 +39,7 @@ void Index::range_query(vector<pii> &query_pairs)
     ofstream outfile("range_query_out.txt");
 
     for (int i = 0; i < query_pairs.size(); i++){
-        int maxValue = -1;
-        
-        for (int j = query_pairs[i].first; j <= query_pairs[i].second; j++){
-            maxValue = max(maxValue, search(j));
-        }
-
-        outfile << maxValue << endl;
+        outfile << searchRange(query_pairs[i].first, query_pairs[i].second) << endl;
     }
 
     outfile.close();
@@ -60,7 +54,7 @@ void Index::insert(int k, int v)
 {
     if (root == NULL){
         root = new Node;
-        root->data[0] = mk(k, v);
+		root->data[0] = mk(k, v);
         root->leaf = true;
         root->size = 1;
     }
@@ -93,7 +87,7 @@ void Index::insert(int k, int v)
                 current->data[i] = current->data[i - 1];
             }
 
-            current->data[index] = mk(k, v);
+	    current->data[index] = mk(k, v);
             current->size++;
 
             current->pointer[current->size] = current->pointer[current->size - 1];
@@ -113,11 +107,11 @@ void Index::insert(int k, int v)
                 index++;
             }
 
-            for (int j = MAX; j > index; j--){
-                virtualNode[j] = virtualNode[j - 1];
+            for (int i = MAX; i > index; i--){
+                virtualNode[i] = virtualNode[i - 1];
             }
 
-            virtualNode[index] = mk(k, v);
+	    virtualNode[index] = mk(k, v);
             newLeaf->leaf = true;
 
             current->size = (MAX + 1) / 2;
@@ -151,19 +145,12 @@ void Index::insert(int k, int v)
     }
 }
 
-int Index::search(int k)
+int Index::searchKey(int k)
 {
     Node *current = root;
-
-    bool initialize = true;
     int start = 0, end = current->size - 1;
 
     while (!current->leaf){
-        if (initialize){
-            start = 0; end = current->size - 1;
-            initialize = false;
-        }
-
         while (start <= end){
             int middle = start + (end - start) / 2;
 
@@ -173,10 +160,8 @@ int Index::search(int k)
         }
         
         current = current->pointer[start];
-        initialize = true;
+        start = 0; end = current->size - 1;
     }
-
-    start = 0; end = current->size - 1;
 
     while (start <= end){
         int middle = start + (end - start) / 2;
@@ -189,6 +174,68 @@ int Index::search(int k)
     return -1;
 }
 
+int Index::searchRange(int begin, int last)
+{
+    Node *current = root;
+
+    int maxValue = -1;
+    int start = 0, end = current->size - 1;
+
+    while (!current->leaf){
+        while (start <= end){
+            int middle = start + (end - start) / 2;
+            if (begin >= current->data[middle].first) start = middle + 1;
+            else end = middle - 1;
+        }
+            
+        current = current->pointer[start];
+        start = 0; end = current->size - 1;
+    }
+
+    int index = 0;
+
+    for (; index < current->size; index++){
+        if (begin <= current->data[index].first) break;
+    }
+    
+    bool stop = false;
+
+    while (!stop){
+        for (int j = index; j < current->size; j++){
+            if (last < current->data[j].first){
+                stop = true; break;
+            }
+
+            maxValue = max(maxValue, current->data[j].second);
+        }
+
+        index = 0;
+
+        current = current->pointer[current->size];
+        if (current == NULL) break;
+    }
+
+    return maxValue;
+}
+
+void Index::deletion(Node *current)
+{
+    if (current->leaf){
+	delete [] current->data;
+	delete [] current->pointer;
+	delete current;
+	return;  
+    }
+
+    for (int i = 0; i <= current->size; i++){
+        deletion(current->pointer[i]);
+    }
+	
+    delete [] current->data;
+    delete [] current->pointer;
+    delete current;
+}
+
 void Index::insertInternal(pii KV, Node *current, Node *child)
 {
     if (current->size < MAX){
@@ -199,16 +246,13 @@ void Index::insertInternal(pii KV, Node *current, Node *child)
         }
 
         for (int i = current->size; i > index; i--){
-            current->data[i] = current->data[i - 1];
+	    current->data[i] = current->data[i - 1];
+	    current->pointer[i + 1] = current->pointer[i];
         }
 
-        for (int i = current->size + 1; i > index + 1; i--){
-            current->pointer[i] = current->pointer[i - 1];
-        }
-
-        current->data[index] = KV;
-        current->size++;
+	current->data[index] = KV;
         current->pointer[index + 1] = child;
+	current->size++;
     }
     else {
         Node *newInternal = new Node;
@@ -231,23 +275,27 @@ void Index::insertInternal(pii KV, Node *current, Node *child)
         }
 
         for (int i = MAX; i > index; i--){
-            virtualNode[i] = virtualNode[i - 1];
+	    virtualNode[i] = virtualNode[i - 1];
+	    virtualPointer[i + 1] = virtualPointer[i];
         }
 
         virtualNode[index] = KV;
-
-        for (int i = MAX + 1; i > index + 1; i--){
-            virtualPointer[i] = virtualPointer[i - 1];
-        }
-
         virtualPointer[index + 1] = child;
         newInternal->leaf = false;
 
         current->size = (MAX + 1) / 2;
         newInternal->size = MAX - (MAX + 1) / 2;
 
+	for (int i = 0; i < current->size; i++){
+	    current->data[i] = virtualNode[i];
+	}
+
+	for (int i = 0; i < current->size + 1; i++){
+	    current->pointer[i] = virtualPointer[i];
+	}
+
         for (int i = 0, j = current->size + 1; i < newInternal->size; i++, j++){
-            newInternal->data[i] = virtualNode[j];
+	    newInternal->data[i] = virtualNode[j];
         }
 
         for (int i = 0, j = current->size + 1; i < newInternal->size + 1; i++, j++){
@@ -257,7 +305,7 @@ void Index::insertInternal(pii KV, Node *current, Node *child)
         if (current == root){
             Node *newRoot = new Node;
 
-            newRoot->data[0] = current->data[current->size];
+	    newRoot->data[0] = virtualNode[current->size];
             newRoot->pointer[0] = current;
             newRoot->pointer[1] = newInternal;
             newRoot->leaf = false;
@@ -265,31 +313,13 @@ void Index::insertInternal(pii KV, Node *current, Node *child)
 
             root = newRoot;
         }
-        else insertInternal(current->data[current->size], traceParent(root, current), newInternal);
+        else insertInternal(virtualNode[current->size], traceParent(root, current), newInternal);
     }
-}
-
-void Index::deletion(Node *current)
-{
-    if (current->leaf){
-      delete [] current->data;
-      delete [] current->pointer;
-      delete  current;
-      return;  
-    }
-
-    for (int i = 0; i <= current->size; i++){
-        deletion(current->pointer[i]);
-    }
-
-    delete [] current->data;
-    delete [] current->pointer;
-    delete current;
 }
 
 Node *Index::traceParent(Node *current, Node *child)
 {
-    Node *parent;
+    Node *parent = current;
 
     if (current->leaf || (current->pointer[0])->leaf) return NULL;
 
