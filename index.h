@@ -3,9 +3,9 @@
 
 #include <bits/stdc++.h>
 
-#define pii pair<int, int>
 #define pb push_back
 #define mk make_pair
+#define pii pair<int, int>
 
 using namespace std;
 
